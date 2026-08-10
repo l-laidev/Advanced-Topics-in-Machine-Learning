@@ -2,3 +2,8 @@
 *.gz
 **/cifar10-data
 *.zip
+__pycache__
+PA0/vit-task_precomputed/*
+*.json
+.env
+PA0/*.JPEG
