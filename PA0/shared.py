@@ -20,6 +20,34 @@ plt.ion()
 DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
 
+class GradientTracker:
+    def __init__(self, model):
+        self.gradients = {name: [] for name, _ in model.named_parameters()}
+        self.handles = []
+        self._register_hooks(model)
+        
+    def _register_hooks(self, model):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                def hook_fn(grad, p_name=name):
+                    grad_norm = grad.norm().item()
+                    grad_mean = grad.mean().item()
+                    grad_std  = grad.std().item()
+                    
+                    self.gradients[p_name].append({
+                        'norm': grad_norm,
+                        'mean': grad_mean,
+                        'std': grad_std
+                    })
+                    return grad
+                
+                handle = param.register_hook(hook_fn)
+                self.handles.append(handle)
+    
+    def unregister(self):
+        for handle in self.handles:
+            handle.remove()
+
 def free_mem():
     gc.collect()
     torch.cuda.empty_cache()
