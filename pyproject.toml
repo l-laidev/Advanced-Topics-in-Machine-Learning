@@ -12,6 +12,12 @@ dependencies = [
     "matplotlib (>=3.11.1,<4.0.0)",
     "umap-learn (>=0.5.12,<0.6.0)",
     "seaborn (>=0.13.2,<0.14.0)",
+    "transformers (>=5.14.1,<6.0.0)",
+    "requests (>=2.34.2,<3.0.0)",
+    "datasets (>=5.0.1,<6.0.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "widgetsnbextension (>=4.0.15,<5.0.0)",
+    "jupyterlab-widgets (>=3.0.16,<4.0.0)",
 ]
 
 
