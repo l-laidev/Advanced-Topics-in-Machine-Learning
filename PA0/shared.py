@@ -6,10 +6,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
+import umap
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import numpy as np
 import seaborn as sns
+import pandas as pd
 
 from tqdm.notebook import trange, tqdm
 import os, time, json, gc
@@ -67,6 +70,13 @@ def create_tform_cifar():
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
     }
+
+
+def make_dataloader(dataset, batch_size, n_workers=12):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True,
+                                        num_workers=n_workers, pin_memory=(DEVICE!="cpu"), persistent_workers=(n_workers!=0))
+    dataset_size = len(dataset)
+    return dataloader, dataset_size
 
 def make_dataloaders(datasets, batch_size, n_workers=12):
     dataloaders = {
@@ -184,6 +194,23 @@ def plot_line(df, configs):
         
     sns.despine(left=True, bottom=True)
 
+def plot_bar(values, categories, title, xlabel, ylabel, fmt="%.0f%%", figsize=(4,4)):
+    sns.set_theme(style="white")
+    plt.figure(figsize=figsize)
+
+    ax = sns.barplot(x=categories, y=values, palette="mako", hue=categories, legend=False)
+
+    for i in range(len(values)):
+        ax.bar_label(ax.containers[i], fmt=fmt, padding=4, fontsize=11, color="#333333", weight="bold")
+
+    plt.title(title, fontsize=16, pad=20, weight="bold", color="#222222")
+    plt.xlabel(xlabel, fontsize=12, labelpad=10, color="#444444")
+    plt.ylabel(ylabel, fontsize=12, labelpad=10, color="#444444")
+
+    sns.despine(left=False, bottom=False)
+
+    plt.tight_layout()
+    plt.show()
 
 def imshow(inp, process_fn, title=None):
     inp = inp.numpy()
@@ -236,4 +263,37 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
     if title is not None:
         plt.suptitle(title, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.93])
+    plt.show()
+
+def visualize_umap_features(features, labels, class_names, title):
+    features = features.reshape((features.shape[0], -1))
+    label_names = [class_names[x.numpy().tolist()] for x in labels]
+    
+    reducer = umap.UMAP()
+    embedding = reducer.fit_transform(features)
+    
+    sns.set_theme(style="white", palette="muted")
+    plt.figure(figsize=(6, 4))
+    sns.scatterplot(
+        data=pd.DataFrame({
+            "umap_1": embedding[:,0],
+            "umap_2": embedding[:,1],
+            "label": label_names,
+            }),
+        x='umap_1',
+        y='umap_2',
+        hue='label',
+        palette='tab10',
+        s=30,
+        alpha=0.8,
+        edgecolor='none'
+    )
+
+    plt.title(title, fontsize=14)
+    plt.xlabel('UMAP Dimension 1')
+    plt.ylabel('UMAP Dimension 2')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=False)
+    plt.gca().set_aspect('equal', 'datalim')
+    sns.despine()
+    plt.tight_layout()
     plt.show()
