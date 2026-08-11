@@ -7,3 +7,4 @@ PA0/vit-task_precomputed/*
 *.json
 .env
 PA0/*.JPEG
+PA0/stl10-data/
