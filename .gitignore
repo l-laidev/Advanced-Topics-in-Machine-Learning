@@ -8,3 +8,4 @@ PA0/vit-task_precomputed/*
 .env
 PA0/*.JPEG
 PA0/stl10-data/
+PA0/mnist-data/
