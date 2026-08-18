@@ -1,6 +1,7 @@
 .venv*/**
 *.gz
-**/cifar10-data
+PA0/cifar10-data/cifar-10-batches-py
+PA0/cifar10-data/cifar-10-python.tar.gz
 *.zip
 __pycache__
 PA0/vit-task_precomputed/*
