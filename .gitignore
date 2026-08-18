@@ -4,9 +4,11 @@
 *.zip
 __pycache__
 PA0/vit-task_precomputed/*
-*.json
+PA0/vit-task/precomputed/
 .env
 PA0/*.JPEG
-PA0/stl10-data/
+PA0/stl10-data/test_images
+PA0/stl10-data/test.json
 PA0/mnist-data/
-PA0/vae-task/
+PA0/vae-task/*.pt
+.vscode
