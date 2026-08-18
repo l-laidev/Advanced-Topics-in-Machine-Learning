@@ -90,13 +90,13 @@ def make_dataloaders(datasets, batch_size, n_workers=12):
     }
     return dataloaders, dataset_sizes
 
-def load_cifar(batch_size=64):
+def load_cifar(batch_size=64, num_workers=12):
     transform = create_tform_cifar()
     datasets = {
         x: torchvision.datasets.CIFAR10(root='./cifar10-data', train=(x=="train"), download=True, transform=transform[x])
         for x in ["train", "val"]
     }
-    return make_dataloaders(datasets, batch_size)
+    return make_dataloaders(datasets, batch_size, num_workers)
 
 def freeze_model(model):
     for param in model.parameters():
@@ -210,7 +210,6 @@ def plot_bar(values, categories, title, xlabel, ylabel, fmt="%.0f%%", figsize=(4
     sns.despine(left=False, bottom=False)
 
     plt.tight_layout()
-    plt.show()
 
 def imshow(inp, process_fn, title=None):
     inp = inp.numpy()
@@ -246,7 +245,7 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
             ax.set_title(f'Predicted: {class_names[predicted_label].title()}'
                             f'\nActual: {label}'
                             f'\n({int(confidence*100)}% Confidence)', fontweight="bold")
-            imshow(inputs, process_fn)
+            imshow(inputs.cpu(), process_fn)
 
             if images_so_far == num_images:
                 model.train(mode=was_training)
@@ -255,7 +254,6 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
                 if title is not None:
                     plt.suptitle(title, fontweight="bold")
                 plt.tight_layout(rect=[0, 0, 1, 0.93])
-                plt.show()
                 return
         model.train(mode=was_training)
     sns.despine(left=True, bottom=True)
@@ -263,7 +261,6 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
     if title is not None:
         plt.suptitle(title, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.show()
 
 def visualize_umap_features(features, labels, class_names, title):
     features = features.reshape((features.shape[0], -1))
@@ -296,4 +293,3 @@ def visualize_umap_features(features, labels, class_names, title):
     plt.gca().set_aspect('equal', 'datalim')
     sns.despine()
     plt.tight_layout()
-    plt.show()
