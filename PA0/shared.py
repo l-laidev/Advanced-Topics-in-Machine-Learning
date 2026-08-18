@@ -243,10 +243,14 @@ def plot_line(df, configs):
         
         sns.despine(ax=config["lineplot_kwargs"]["ax"], left=False, bottom=False)
 
-def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%", figsize=(3.25, 2.4)):
+def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%", figsize=(3.25, 2.4), color=None):
     fig, ax = plt.subplots(figsize=figsize)
 
-    sns.barplot(x=categories, y=values, palette="colorblind", hue=categories, legend=False, ax=ax)
+    if color is None:
+        sns.barplot(x=categories, y=values, palette="colorblind", hue=categories, legend=False, ax=ax)
+    else:
+        sns.barplot(x=categories, y=values, color=color, legend=False, ax=ax)
+
     for container in ax.containers:
         ax.bar_label(
             container,
@@ -267,6 +271,8 @@ def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%",
 
     sns.despine(ax=ax, left=False, bottom=False)
     fig.tight_layout()
+
+    return fig, ax
 
 def imshow(inp, process_fn, title=None):
     inp = inp.numpy()
@@ -338,12 +344,13 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
     if title is not None:
         plt.suptitle(title, fontweight="bold")
 
-def visualize_umap_features(features, labels, class_names, ax, legend=False, title=None):
-    features = features.reshape((features.shape[0], -1))
+def visualize_umap_features(features, labels, class_names, ax, legend=False, title=None, palette=None, point_size=10, alpha=0.65, embedding=None, marker="o"):
     label_names = [class_names[x.numpy().tolist()] for x in labels]
-    
-    reducer = umap.UMAP(random_state=42, n_jobs=1)
-    embedding = reducer.fit_transform(features)
+
+    if embedding is None:
+        features = features.reshape((features.shape[0], -1))
+        reducer = umap.UMAP(random_state=42, n_jobs=1)
+        embedding = reducer.fit_transform(features)
     
     sns.scatterplot(
         data=pd.DataFrame({
@@ -354,11 +361,12 @@ def visualize_umap_features(features, labels, class_names, ax, legend=False, tit
         x='umap_1',
         y='umap_2',
         hue='label',
-        palette='colorblind',
-        s=10,
-        alpha=0.65,
+        palette='colorblind' if palette is None else palette,
+        s=point_size,
+        alpha=alpha,
         edgecolor='none',
         linewidth=0,
+        marker=marker,
         legend=legend,
         ax=ax,
     )
@@ -372,3 +380,5 @@ def visualize_umap_features(features, labels, class_names, ax, legend=False, tit
     ax.set_aspect("equal", "datalim")
     ax.grid(False)
     sns.despine(ax=ax)
+
+    return ax
