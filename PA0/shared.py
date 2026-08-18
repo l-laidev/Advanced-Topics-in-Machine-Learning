@@ -8,6 +8,7 @@ from torch.optim import lr_scheduler
 
 import umap
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import numpy as np
@@ -21,6 +22,55 @@ from tempfile import TemporaryDirectory
 cudnn.benchmark = True
 plt.ion()
 DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+
+def set_neurips_style():
+    sns.set_theme(
+        style="whitegrid",
+        context="paper",
+        font="DejaVu Sans",
+    )
+
+    mpl.rcParams.update({
+        # Figure
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.02,
+
+        # Fonts
+        "font.size": 8,
+        "axes.titlesize": 9,
+        "axes.labelsize": 8,
+        "xtick.labelsize": 7,
+        "ytick.labelsize": 7,
+        "legend.fontsize": 7,
+
+        # Axes
+        "axes.linewidth": 0.8,
+        "axes.labelweight": "normal",
+        "axes.titleweight": "normal",
+
+        # Lines
+        "lines.linewidth": 1.5,
+        "lines.markersize": 4,
+
+        # Ticks
+        "xtick.major.width": 0.8,
+        "ytick.major.width": 0.8,
+        "xtick.major.size": 3,
+        "ytick.major.size": 3,
+
+        # Legend
+        "legend.frameon": False,
+
+        # PDF/vector output
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+
+        # Avoid transparent weirdness in some PDF viewers
+        "savefig.transparent": False,
+    })
+set_neurips_style()
 
 
 class GradientTracker:
@@ -178,38 +228,45 @@ def train_model(fname, model, criterion, optimizer, scheduler, dataloaders, data
         f.write(json.dumps(metrics))
 
 def plot_line(df, configs):
-    sns.set_theme(style="whitegrid")
     epochs = range(len(df[df.columns[0]]))
     
     for config in configs:
         sns.lineplot(df, x=epochs, y=config["column"], marker="o", **config["lineplot_kwargs"])
-        config["lineplot_kwargs"]["ax"].set_title(config["title"], fontsize=18, pad=20, weight="bold")
-        config["lineplot_kwargs"]["ax"].set_xlabel(config["xlabel"], fontsize=14, labelpad=10)
-        config["lineplot_kwargs"]["ax"].set_ylabel(config["ylabel"], fontsize=14, labelpad=10)
+        config["lineplot_kwargs"]["ax"].set_title(config["title"])
+        config["lineplot_kwargs"]["ax"].set_xlabel(config["xlabel"])
+        config["lineplot_kwargs"]["ax"].set_ylabel(config["ylabel"])
         
         if "ylim" in config:
             config["lineplot_kwargs"]["ax"].set_ylim((config["ylim"]))
 
         config["lineplot_kwargs"]["ax"].xaxis.set_major_locator(MaxNLocator(integer=True))
         
-    sns.despine(left=True, bottom=True)
+        sns.despine(ax=config["lineplot_kwargs"]["ax"], left=False, bottom=False)
 
-def plot_bar(values, categories, title, xlabel, ylabel, fmt="%.0f%%", figsize=(4,4)):
-    sns.set_theme(style="white")
-    plt.figure(figsize=figsize)
+def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%", figsize=(3.25, 2.4)):
+    fig, ax = plt.subplots(figsize=figsize)
 
-    ax = sns.barplot(x=categories, y=values, palette="mako", hue=categories, legend=False)
+    sns.barplot(x=categories, y=values, palette="colorblind", hue=categories, legend=False, ax=ax)
+    for container in ax.containers:
+        ax.bar_label(
+            container,
+            fmt=fmt,
+            padding=2,
+            fontsize=7,
+            color="#333333",
+        )
 
-    for i in range(len(values)):
-        ax.bar_label(ax.containers[i], fmt=fmt, padding=4, fontsize=11, color="#333333", weight="bold")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
-    plt.title(title, fontsize=16, pad=20, weight="bold", color="#222222")
-    plt.xlabel(xlabel, fontsize=12, labelpad=10, color="#444444")
-    plt.ylabel(ylabel, fontsize=12, labelpad=10, color="#444444")
+    if title is not None:
+        ax.set_title(title)
 
-    sns.despine(left=False, bottom=False)
+    ax.grid(axis="y", alpha=0.25, linewidth=0.7)
+    ax.grid(axis="x", visible=False)
 
-    plt.tight_layout()
+    sns.despine(ax=ax, left=False, bottom=False)
+    fig.tight_layout()
 
 def imshow(inp, process_fn, title=None):
     inp = inp.numpy()
@@ -230,7 +287,7 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
     images_so_far = 0
     num_images = len(samples)
     
-    fig = plt.figure(figsize=(11,5))
+    fig = plt.figure(figsize=(7.0,2.2))
     sns.set_theme(style='white', palette='deep')
 
     with torch.no_grad(), tqdm(total=num_images) as pbar:
@@ -245,32 +302,49 @@ def visualize_model(model, process_fn, samples, class_names, run_inference, titl
             ax.set_title(f'Predicted: {class_names[predicted_label].title()}'
                             f'\nActual: {label}'
                             f'\n({int(confidence*100)}% Confidence)', fontweight="bold")
+            ax.set_title(
+                f"{class_names[predicted_label].title()}\n"
+                f"GT: {class_names[label].title()} "
+                f"({confidence:.0%})",
+                fontsize=8,
+                fontweight="normal",
+            )
+
             imshow(inputs.cpu(), process_fn)
 
             if images_so_far == num_images:
                 model.train(mode=was_training)
                 sns.despine(left=True, bottom=True)
-                plt.tight_layout()
+                fig.subplots_adjust(
+                    left=0,
+                    right=1,
+                    bottom=0,
+                    top=0.82 if title is not None else 1,
+                    wspace=0.03,
+                )
                 if title is not None:
                     plt.suptitle(title, fontweight="bold")
-                plt.tight_layout(rect=[0, 0, 1, 0.93])
                 return
-        model.train(mode=was_training)
+
+    model.train(mode=was_training)
     sns.despine(left=True, bottom=True)
-    plt.tight_layout()
+    fig.subplots_adjust(
+        left=0,
+        right=1,
+        bottom=0,
+        top=0.82 if title is not None else 1,
+        wspace=0.03,
+    )
     if title is not None:
         plt.suptitle(title, fontweight="bold")
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
 
-def visualize_umap_features(features, labels, class_names, title):
+def visualize_umap_features(features, labels, class_names, ax, legend=False, title=None):
     features = features.reshape((features.shape[0], -1))
     label_names = [class_names[x.numpy().tolist()] for x in labels]
     
-    reducer = umap.UMAP()
+    reducer = umap.UMAP(random_state=42, n_jobs=1)
     embedding = reducer.fit_transform(features)
     
-    sns.set_theme(style="white", palette="muted")
-    plt.figure(figsize=(6, 4))
     sns.scatterplot(
         data=pd.DataFrame({
             "umap_1": embedding[:,0],
@@ -280,16 +354,21 @@ def visualize_umap_features(features, labels, class_names, title):
         x='umap_1',
         y='umap_2',
         hue='label',
-        palette='tab10',
-        s=30,
-        alpha=0.8,
-        edgecolor='none'
+        palette='colorblind',
+        s=10,
+        alpha=0.65,
+        edgecolor='none',
+        linewidth=0,
+        legend=legend,
+        ax=ax,
     )
 
-    plt.title(title, fontsize=14)
-    plt.xlabel('UMAP Dimension 1')
-    plt.ylabel('UMAP Dimension 2')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=False)
-    plt.gca().set_aspect('equal', 'datalim')
-    sns.despine()
-    plt.tight_layout()
+    ax.set_xlabel('UMAP Dimension 1')
+    ax.set_ylabel('UMAP Dimension 2')
+
+    if title is not None:
+        ax.set_title(title)
+
+    ax.set_aspect("equal", "datalim")
+    ax.grid(False)
+    sns.despine(ax=ax)
