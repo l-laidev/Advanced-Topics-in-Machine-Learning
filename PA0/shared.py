@@ -243,8 +243,9 @@ def plot_line(df, configs):
         
         sns.despine(ax=config["lineplot_kwargs"]["ax"], left=False, bottom=False)
 
-def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%", figsize=(3.25, 2.4), color=None):
-    fig, ax = plt.subplots(figsize=figsize)
+def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%", figsize=(3.25, 2.4), color=None, fig=None, ax=None):
+    if ax is None or fig is None:
+        fig, ax = plt.subplots(figsize=figsize)
 
     if color is None:
         sns.barplot(x=categories, y=values, palette="colorblind", hue=categories, legend=False, ax=ax)
