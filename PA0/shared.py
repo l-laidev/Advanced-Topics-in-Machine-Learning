@@ -287,62 +287,81 @@ def imshow(inp, process_fn, title=None):
     if title is not None:
         plt.title(title, fontweight="bold")
 
-def visualize_model(model, process_fn, samples, class_names, run_inference, title=None):
+def visualize_model(model, process_fn, samples, class_names, run_inference, figsize, ncols=None, title=None):
     was_training = model.training
     model.eval()
     images_so_far = 0
     num_images = len(samples)
-    
-    fig = plt.figure(figsize=(7.0,2.2))
-    sns.set_theme(style='white', palette='deep')
 
-    with torch.no_grad(), tqdm(total=num_images) as pbar:
+    ncols = min(ncols, num_images) if ncols is not None else num_images
+    nrows = np.ceil(num_images / ncols).astype(int).tolist()
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False)
+    axes = axes.ravel()
+
+    with torch.inference_mode(), tqdm(total=num_images) as pbar:
         for i, (image, label) in enumerate(samples):
             inputs, predicted_label, confidence = run_inference(model, image)
             
             images_so_far += 1
             pbar.update(1)
+            ax = axes[i]
             
-            ax = plt.subplot(1, num_images, images_so_far)
+            inp = inputs.detach().cpu().numpy()
+            if inp.ndim == 3:
+                inp = inp.transpose((1, 2, 0))
+            inp = process_fn(inp)
+            inp = np.clip(inp, 0, 1)
+
+            ax.imshow(inp)
             ax.axis('off')
-            ax.set_title(f'Predicted: {class_names[predicted_label].title()}'
-                            f'\nActual: {label}'
-                            f'\n({int(confidence*100)}% Confidence)', fontweight="bold")
+
+            predicted_name = class_names[predicted_label]
+            true_name = class_names[label]
+            is_correct = predicted_label == label
+            color = "#2E7D32" if is_correct else "#C62828"
+
             ax.set_title(
-                f"{class_names[predicted_label].title()}\n"
-                f"GT: {class_names[label].title()} "
-                f"({confidence:.0%})",
-                fontsize=8,
+                f"{predicted_name.title()} ({confidence:.0%})",
+                fontsize=7.5,
                 fontweight="normal",
+                color=color,
+                pad=2,
             )
 
-            imshow(inputs.cpu(), process_fn)
+            ax.text(
+                0.5,
+                -0.035,
+                f"GT: {true_name.title()}",
+                transform=ax.transAxes,
+                ha="center",
+                va="top",
+                fontsize=6.5,
+                color="#555555",
+            )
 
             if images_so_far == num_images:
-                model.train(mode=was_training)
-                sns.despine(left=True, bottom=True)
-                fig.subplots_adjust(
-                    left=0,
-                    right=1,
-                    bottom=0,
-                    top=0.82 if title is not None else 1,
-                    wspace=0.03,
-                )
-                if title is not None:
-                    plt.suptitle(title, fontweight="bold")
-                return
+                break
 
     model.train(mode=was_training)
     sns.despine(left=True, bottom=True)
+
+    for ax in axes[num_images:]:
+        ax.axis("off")
+
     fig.subplots_adjust(
-        left=0,
-        right=1,
-        bottom=0,
-        top=0.82 if title is not None else 1,
-        wspace=0.03,
+        left=0.01,
+        right=0.99,
+        top=0.88 if title is not None else 0.96,
+        bottom=0.16,
+        wspace=0.08,
+        hspace=0.25,
     )
+
     if title is not None:
-        plt.suptitle(title, fontweight="bold")
+        fig.suptitle(title, fontsize=9, fontweight="normal", y=0.99)
+
+    return fig, axes
 
 def visualize_umap_features(features, labels, class_names, ax, legend=False, title=None, palette=None, point_size=10, alpha=0.65, embedding=None, marker="o"):
     label_names = [class_names[x.numpy().tolist()] for x in labels]
