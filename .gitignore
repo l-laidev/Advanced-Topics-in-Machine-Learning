@@ -11,5 +11,5 @@ PA0/*.JPEG
 PA0/stl10-data/test_images
 PA0/stl10-data/test.json
 PA0/mnist-data/
-PA0/vae-task/*.pt
+*.pt
 .vscode
