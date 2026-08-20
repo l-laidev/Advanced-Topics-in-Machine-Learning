@@ -162,69 +162,70 @@ def create_classification(model, lr=0.001, momentum=0.9, step_size=7, gamma=0.1)
     exp_lr_sched = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     return criterion, optimizer, exp_lr_sched
 
-def train_model(fname, model, criterion, optimizer, scheduler, dataloaders, dataset_sizes, num_epochs=25):
+def train_model(fpath, model, criterion, optimizer, scheduler, dataloaders, dataset_sizes, num_epochs=25):
     since = time.time()
     metrics = {
         "train": {"loss": [], "accuracy": []},
         "val": {"loss": [], "accuracy": []},
     }
 
-    with TemporaryDirectory() as tempdir:
-        best_model_params_path = os.path.join(tempdir, f'best_{fname}.pt')
+    base = os.path.dirname(fpath)
+    fname = os.path.basename(fpath)
+    best_model_params_path = os.path.join(base, f'best_{fname}.pt')
 
-        torch.save(model.state_dict(), best_model_params_path)
-        best_acc = 0.0
+    torch.save(model.state_dict(), best_model_params_path)
+    best_acc = 0.0
 
-        for epoch in (t := trange(num_epochs)):
-            t.set_description_str(f'Epoch {epoch:3}/{num_epochs - 1:3}')
+    for epoch in (t := trange(num_epochs)):
+        t.set_description_str(f'Epoch {epoch:3}/{num_epochs - 1:3}')
 
-            for phase in ['train', 'val']:
-                if phase == 'train':
-                    model.train()
-                else:
-                    model.eval()
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()
+            else:
+                model.eval()
 
-                running_loss = 0.0
-                running_corrects = 0
+            running_loss = 0.0
+            running_corrects = 0
 
-                for inputs, labels in tqdm(dataloaders[phase], total=len(dataloaders[phase]), leave=False):
-                    inputs = inputs.to(DEVICE, non_blocking=True)
-                    labels = labels.to(DEVICE, non_blocking=True)
+            for inputs, labels in tqdm(dataloaders[phase], total=len(dataloaders[phase]), leave=False):
+                inputs = inputs.to(DEVICE, non_blocking=True)
+                labels = labels.to(DEVICE, non_blocking=True)
 
-                    optimizer.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=True)
 
-                    with torch.set_grad_enabled(phase == 'train'):
-                        outputs = model(inputs)
-                        _, preds = torch.max(outputs, 1)
-                        loss = criterion(outputs, labels)
+                with torch.set_grad_enabled(phase == 'train'):
+                    outputs = model(inputs)
+                    _, preds = torch.max(outputs, 1)
+                    loss = criterion(outputs, labels)
 
-                        if phase == 'train':
-                            loss.backward()
-                            optimizer.step()
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
 
-                    running_loss += loss.detach() * inputs.size(0)
-                    running_corrects += torch.sum(preds == labels.data)
-                if phase == 'train':
-                    scheduler.step()
+                running_loss += loss.detach() * inputs.size(0)
+                running_corrects += torch.sum(preds == labels.data)
+            if phase == 'train':
+                scheduler.step()
 
-                epoch_loss = running_loss.item() / dataset_sizes[phase]
-                epoch_acc = running_corrects.double().item() / dataset_sizes[phase]
+            epoch_loss = running_loss.item() / dataset_sizes[phase]
+            epoch_acc = running_corrects.double().item() / dataset_sizes[phase]
 
-                t.set_description_str(f'[{epoch:3}] {phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-                metrics[phase]["loss"].append(epoch_loss)
-                metrics[phase]["accuracy"].append(epoch_acc)
+            t.set_description_str(f'[{epoch:3}] {phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+            metrics[phase]["loss"].append(epoch_loss)
+            metrics[phase]["accuracy"].append(epoch_acc)
 
-                if phase == 'val' and epoch_acc > best_acc:
-                    best_acc = epoch_acc
-                    torch.save(model.state_dict(), best_model_params_path)
+            if phase == 'val' and epoch_acc > best_acc:
+                best_acc = epoch_acc
+                torch.save(model.state_dict(), best_model_params_path)
 
-        time_elapsed = time.time() - since
-        print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-        print(f'Best val Acc: {best_acc:4f}')
+    time_elapsed = time.time() - since
+    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
+    print(f'Best val Acc: {best_acc:4f}')
 
-        model.load_state_dict(torch.load(best_model_params_path, weights_only=True))
+    model.load_state_dict(torch.load(best_model_params_path, weights_only=True))
     
-    with open(f"{fname}.json", "w") as f:
+    with open(os.path.join(base, f"{fname}.json"), "w") as f:
         f.write(json.dumps(metrics))
 
 def plot_line(df, configs):
@@ -275,7 +276,7 @@ def plot_bar(values, categories, title=None, xlabel="", ylabel="", fmt="%.0f%%",
 
     return fig, ax
 
-def imshow(inp, process_fn, title=None):
+def imshow(inp, process_fn, title=None, ax=None):
     inp = inp.numpy()
     if len(inp.shape) == 3:
         inp = inp.transpose((1, 2, 0))
@@ -283,10 +284,16 @@ def imshow(inp, process_fn, title=None):
     inp = process_fn(inp)
     inp = np.clip(inp, 0, 1)
     
-    plt.imshow(inp)
-    plt.axis("off")
-    if title is not None:
-        plt.title(title, fontweight="bold")
+    if ax is None:
+        plt.imshow(inp)
+        plt.axis("off")
+        if title is not None:
+            plt.title(title)
+    else:
+        ax.imshow(inp)
+        ax.axis("off")
+        if title is not None:
+            ax.set_title(title)
 
 def visualize_model(model, process_fn, samples, class_names, run_inference, figsize, ncols=None, title=None):
     was_training = model.training
